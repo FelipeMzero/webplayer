@@ -36,9 +36,8 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 15px; width: 15px; background: #3b82f6; border-radius: 50%; margin-top: -5px; cursor: pointer; }
     </style>
 </head>
-<body class="bg-slate-900 text-gray-200">
+<body class="bg-slate-900 text-gray-200 overflow-x-hidden">
 
-    <!-- Tela de Login -->
     <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900 p-4">
         <div class="w-full max-w-md bg-slate-800 rounded-xl shadow-2xl p-8 space-y-6">
             <div class="text-center">
@@ -66,33 +65,39 @@
         </div>
     </div>
 
-    <!-- Tela Principal da Aplicação -->
     <div id="app-screen" class="hidden">
-        <header class="bg-slate-800/80 backdrop-blur-sm shadow-lg sticky top-0 z-30 p-4 flex justify-between items-center gap-4">
+        <header class="bg-slate-800/80 backdrop-blur-sm shadow-lg sticky top-0 z-30 p-4 flex justify-between items-center gap-4 flex-wrap">
             <h1 class="text-xl font-bold text-white flex-shrink-0">IPTV Player</h1>
-            <div class="relative flex-grow max-w-xs sm:max-w-sm md:max-w-md">
+            <div class="relative flex-grow w-full sm:w-auto max-w-xs sm:max-w-sm md:max-w-md order-3 sm:order-2">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
                 <input type="search" id="search-input" placeholder="Pesquisar..." class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
-            <nav id="main-nav" class="hidden sm:flex items-center space-x-2 sm:space-x-4">
-                <button data-type="live" class="nav-button bg-blue-600 text-white px-3 py-2 sm:px-4 rounded-md text-sm font-medium">TV</button>
-                <button data-type="vod" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 sm:px-4 rounded-md text-sm font-medium">Filmes</button>
-                <button data-type="series" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 sm:px-4 rounded-md text-sm font-medium">Séries</button>
-            </nav>
-            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm">Sair</button>
+            <div class="flex items-center gap-2 order-2 sm:order-3">
+                 <nav id="main-nav" class="flex items-center space-x-2">
+                    <button data-type="live" class="nav-button bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium">TV</button>
+                    <button data-type="vod" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-md text-sm font-medium">Filmes</button>
+                    <button data-type="series" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-md text-sm font-medium">Séries</button>
+                </nav>
+                <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-lg transition duration-300 text-sm">
+                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </button>
+            </div>
         </header>
 
-        <main class="flex flex-col md:flex-row h-[calc(100vh-68px)]">
-            <aside id="category-sidebar" class="w-full md:w-64 bg-slate-800 p-4 overflow-y-auto"></aside>
+        <main class="relative flex flex-col md:flex-row h-[calc(100vh-120px)] sm:h-[calc(100vh-68px)]">
+             <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+            <button id="open-sidebar-btn" class="md:hidden fixed top-24 left-4 bg-blue-600 text-white p-2 rounded-md z-20">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <aside id="category-sidebar" class="w-64 bg-slate-800 p-4 overflow-y-auto fixed md:relative h-full top-0 left-0 z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out"></aside>
             <section id="content-grid-container" class="flex-1 p-4 sm:p-6 overflow-y-auto">
                  <div id="content-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4"></div>
             </section>
         </main>
     </div>
 
-    <!-- Player de Vídeo (Modal) -->
     <div id="video-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
         <div id="video-player-container" class="w-full max-w-4xl bg-black rounded-lg shadow-xl relative aspect-video">
             <button id="close-video-modal" class="absolute -top-2 -right-2 text-white bg-red-600 rounded-full w-8 h-8 flex items-center justify-center z-20">&times;</button>
@@ -100,18 +105,16 @@
                 <svg class="audio-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>
             </div>
             <video id="video-player" class="w-full h-full" controlslist="nodownload" onclick="togglePlayPause()"></video>
-            <!-- Botão "Próximo Episódio" -->
             <div id="up-next-container" class="absolute bottom-20 right-4 z-10 hidden">
                 <button id="up-next-btn" class="bg-slate-900/80 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center gap-2">
                     Próximo Episódio
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                 </button>
             </div>
-            <!-- Controles Personalizados -->
             <div class="controls-container absolute bottom-0 left-0 right-0 p-4 text-white flex flex-col gap-2">
                 <input type="range" id="progress-bar" class="w-full" value="0" step="0.1">
                 <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 sm:gap-4">
                         <button id="prev-btn" class="hidden"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg></button>
                         <button id="play-pause-btn">
                             <svg class="w-6 h-6" id="play-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
@@ -126,8 +129,8 @@
                             <input type="range" id="volume-slider" class="w-24" min="0" max="1" step="0.01" value="1">
                         </div>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <span id="time-display">00:00 / 00:00</span>
+                    <div class="flex items-center gap-2 sm:gap-4">
+                        <span id="time-display" class="text-xs sm:text-sm">00:00 / 00:00</span>
                         <button id="fullscreen-btn">
                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>
                         </button>
@@ -137,7 +140,6 @@
         </div>
     </div>
     
-    <!-- Modal de Detalhes para Filmes/Séries -->
     <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-40 hidden p-4">
         <div class="w-full max-w-4xl bg-slate-800 rounded-lg shadow-xl relative max-h-full overflow-y-auto">
             <button id="close-details-modal" class="absolute top-3 right-3 text-white bg-red-600 rounded-full w-8 h-8 flex items-center justify-center z-20">&times;</button>
@@ -145,7 +147,6 @@
         </div>
     </div>
     
-    <!-- Modal para Continuar a Ver -->
     <div id="resume-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
         <div class="bg-slate-800 rounded-lg shadow-xl p-8 text-center">
             <h3 class="text-xl text-white mb-4">Deseja continuar a ver?</h3>
@@ -157,7 +158,6 @@
         </div>
     </div>
 
-    <!-- Indicador de Carregamento Global -->
     <div id="loader" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
     </div>
@@ -184,6 +184,8 @@
         const loginError = document.getElementById('login-error');
         const mainNav = document.getElementById('main-nav');
         const categorySidebar = document.getElementById('category-sidebar');
+        const openSidebarBtn = document.getElementById('open-sidebar-btn');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
         const contentGrid = document.getElementById('content-grid');
         const videoModal = document.getElementById('video-modal');
         const videoPlayerContainer = document.getElementById('video-player-container');
@@ -294,6 +296,9 @@
                     e.currentTarget.classList.add('active');
                     searchInput.value = ''; // Limpa a pesquisa ao mudar de categoria
                     fetchContent(currentType, e.currentTarget.dataset.categoryId);
+                    // Fecha o menu mobile ao selecionar
+                    categorySidebar.classList.add('-translate-x-full');
+                    sidebarOverlay.classList.add('hidden');
                 });
             });
         }
@@ -372,7 +377,7 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-white text-sm">Ep ${ep.episode_num}: ${ep.title}</p>
                                 </div>
-                                <button onclick="initiatePlayback('${streamUrl}', '${ep.id}', ${seasonNum}, ${ep.episode_num})" class="flex-shrink-0 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full">
+                                <button onclick="initiatePlayback('${streamUrl}', '${ep.id}')" class="flex-shrink-0 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full">
                                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                                 </button>
                             </div>`;
@@ -454,7 +459,6 @@
 
             if (data) {
                 if(type === 'series') {
-                    // Prepara a playlist para os botões de próximo/anterior
                     const episodes = Object.values(data.episodes).flat();
                     currentPlaylist.items = episodes.map(ep => ({
                         id: ep.id,
@@ -487,11 +491,10 @@
                 detailsModal.classList.add('hidden');
             }
             
-            // Encontra o índice do episódio atual na playlist da série
             if(currentType === 'series') {
                 currentPlaylist.index = currentPlaylist.items.findIndex(item => item.id == streamId);
             } else {
-                currentPlaylist = { items: [], index: -1 }; // Limpa para filmes e TV
+                currentPlaylist = { items: [], index: -1 };
             }
 
             const savedState = getPlaybackTime(streamId);
@@ -528,7 +531,6 @@
             audioVisualizer.classList.add('hidden');
             document.getElementById('video-error-overlay')?.remove();
             
-            // Mostra/esconde botões de próximo/anterior
             prevBtn.classList.toggle('hidden', currentPlaylist.index <= 0);
             nextBtn.classList.toggle('hidden', currentPlaylist.index >= currentPlaylist.items.length - 1);
             upNextContainer.classList.add('hidden');
@@ -549,7 +551,7 @@
                 hls = new Hls(hlsConfig);
                 hls.loadSource(url);
                 hls.attachMedia(videoPlayer);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e => console.error("Autoplay foi bloqueado:", e)));
+                hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e => {}));
                 hls.on(Hls.Events.ERROR, (event, data) => { 
                     console.error('HLS Error:', data);
                     if(data.fatal) {
@@ -561,19 +563,22 @@
                 videoPlayer.src = url;
             }
             
-            videoPlayer.oncanplay = () => {
+            // FIX: Use 'loadedmetadata' and 'seeked' events to reliably resume playback.
+            const handleCanPlay = () => {
                 removeSpinner();
                 if (startTime > 0) {
-                    const doSeek = () => {
-                        videoPlayer.currentTime = startTime;
-                        videoPlayer.removeEventListener('loadedmetadata', doSeek);
+                    const handleSeeked = () => {
                         videoPlayer.play().catch(e => console.error("Autoplay após seek foi bloqueado:", e));
+                        videoPlayer.removeEventListener('seeked', handleSeeked);
                     };
-                    videoPlayer.addEventListener('loadedmetadata', doSeek);
+                    videoPlayer.addEventListener('seeked', handleSeeked);
+                    videoPlayer.currentTime = startTime;
                 } else {
-                    videoPlayer.play().catch(e => console.error("Autoplay foi bloqueado:", e));
+                   videoPlayer.play().catch(e => console.error("Autoplay foi bloqueado:", e));
                 }
             };
+            videoPlayer.addEventListener('canplay', handleCanPlay, { once: true });
+            
             videoPlayer.onerror = (e) => {
                 removeSpinner();
                 console.error('Native Video Player Error:', e);
@@ -658,25 +663,28 @@
             });
 
             searchInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase();
-                const activeCategory = document.querySelector('.category-item.active')?.dataset.categoryId || 'all';
+                const query = e.target.value.toLowerCase().trim();
+                const activeCategoryEl = document.querySelector('.category-item.active');
+                if(!activeCategoryEl) return;
+
+                const activeCategoryId = activeCategoryEl.dataset.categoryId;
+                const sourceItems = contentCache[currentType].items;
+
+                if (!sourceItems) return;
                 
-                let sourceItems = [];
-                if (activeCategory === 'all') {
-                    sourceItems = contentCache[currentType].items;
-                } else {
-                    sourceItems = contentCache[currentType].items.filter(item => item.category_id == activeCategory);
-                }
+                const categoryFilteredItems = activeCategoryId === 'all'
+                    ? sourceItems
+                    : sourceItems.filter(item => item.category_id == activeCategoryId);
 
                 if (!query) {
-                    renderContent(sourceItems);
+                    renderContent(categoryFilteredItems);
                     return;
                 }
 
-                const filteredItems = sourceItems.filter(item => 
+                const searchFilteredItems = categoryFilteredItems.filter(item => 
                     (item.name || item.title).toLowerCase().includes(query)
                 );
-                renderContent(filteredItems);
+                renderContent(searchFilteredItems);
             });
 
             closeVideoModal.addEventListener('click', stopVideo);
@@ -690,21 +698,18 @@
                 stopVideo();
             });
             
-            videoPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
-            videoPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); });
+            videoPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); videoPlayerContainer.classList.remove('paused');});
+            videoPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); videoPlayerContainer.classList.add('paused');});
             videoPlayer.addEventListener('timeupdate', () => {
                 progressBar.value = (videoPlayer.currentTime / videoPlayer.duration) * 100 || 0;
                 timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration || 0)}`;
-                // Lógica para "Próximo Episódio"
                 if(currentPlaylist.index !== -1 && videoPlayer.duration > 0 && (videoPlayer.duration - videoPlayer.currentTime) <= 30) {
                     upNextContainer.classList.remove('hidden');
                 } else {
                     upNextContainer.classList.add('hidden');
                 }
             });
-            videoPlayer.addEventListener('ended', () => {
-                playNextEpisode();
-            });
+            videoPlayer.addEventListener('ended', playNextEpisode);
             progressBar.addEventListener('input', () => { videoPlayer.currentTime = (progressBar.value / 100) * videoPlayer.duration; });
             playPauseBtn.addEventListener('click', togglePlayPause);
             volumeSlider.addEventListener('input', (e) => { videoPlayer.volume = e.target.value; videoPlayer.muted = e.target.value == 0; });
@@ -734,6 +739,15 @@
                 }
             });
             upNextBtn.addEventListener('click', playNextEpisode);
+            
+            openSidebarBtn.addEventListener('click', () => {
+                categorySidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+            });
+            sidebarOverlay.addEventListener('click', () => {
+                categorySidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            });
         }
         
         // --- Inicialização ---
