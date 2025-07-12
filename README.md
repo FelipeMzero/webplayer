@@ -78,7 +78,7 @@ Toda a lógica é contida num único ficheiro HTML, utilizando o Tailwind CSS pa
 
 ### Acesso e Utilização:
 
-- Acesse no navegador: `http://seusite.com/index.html`
+- Acesse no navegador: `https://felipemzero.github.io/webplayer/`
 - Insira a URL do servidor, nome de utilizador e senha para acessar o conteúdo.
 
 ---
