@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Player IPTV</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        .category-item.active { background-color: #2563eb; color: white; }
+        .content-card { transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+        .content-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .audio-icon-container { display: flex; justify-content: center; align-items: center; height: 100%; background-color: #000; }
+        .audio-icon { color: #9ca3af; width: 8rem; height: 8rem; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(0.95); } }
+        
+        /* Nova Interface do Player */
+        #video-player-container .controls-container {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+        }
+        #video-player-container:hover .controls-container, #video-player-container.paused .controls-container {
+            opacity: 1;
+        }
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { height: 5px; background: rgba(100, 116, 139, 0.5); border-radius: 3px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 15px; width: 15px; background: #3b82f6; border-radius: 50%; margin-top: -5px; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-slate-900 text-gray-200">
+
+    <!-- Tela de Login -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-blue-900 p-4">
+        <div class="w-full max-w-md bg-slate-800 rounded-xl shadow-2xl p-8 space-y-6">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-white">Web Player IPTV</h1>
+                <p class="text-slate-400 mt-2">Acesse com sua conta Xtream</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="server-url" class="text-sm font-medium text-slate-300">URL do Servidor (com http://)</label>
+                    <input type="text" id="server-url" placeholder="http://domain:port" class="mt-1 w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="username" class="text-sm font-medium text-slate-300">Usuário</label>
+                    <input type="text" id="username" placeholder="Seu usuário" class="mt-1 w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="password" class="text-sm font-medium text-slate-300">Senha</label>
+                    <input type="password" id="password" placeholder="Sua senha" class="mt-1 w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                    Entrar
+                </button>
+            </form>
+            <div id="login-error" class="text-red-400 text-center text-sm hidden"></div>
+        </div>
+    </div>
+
+    <!-- Tela Principal da Aplicação -->
+    <div id="app-screen" class="hidden">
+        <header class="bg-slate-800/80 backdrop-blur-sm shadow-lg sticky top-0 z-30 p-4 flex justify-between items-center gap-4">
+            <h1 class="text-xl font-bold text-white flex-shrink-0">IPTV Player</h1>
+            <div class="relative flex-grow max-w-xs sm:max-w-sm md:max-w-md">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <input type="search" id="search-input" placeholder="Pesquisar..." class="w-full bg-slate-700 border border-slate-600 text-white rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <nav id="main-nav" class="hidden sm:flex items-center space-x-2 sm:space-x-4">
+                <button data-type="live" class="nav-button bg-blue-600 text-white px-3 py-2 sm:px-4 rounded-md text-sm font-medium">TV</button>
+                <button data-type="vod" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 sm:px-4 rounded-md text-sm font-medium">Filmes</button>
+                <button data-type="series" class="nav-button bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 sm:px-4 rounded-md text-sm font-medium">Séries</button>
+            </nav>
+            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm">Sair</button>
+        </header>
+
+        <main class="flex flex-col md:flex-row h-[calc(100vh-68px)]">
+            <aside id="category-sidebar" class="w-full md:w-64 bg-slate-800 p-4 overflow-y-auto"></aside>
+            <section id="content-grid-container" class="flex-1 p-4 sm:p-6 overflow-y-auto">
+                 <div id="content-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Player de Vídeo (Modal) -->
+    <div id="video-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div id="video-player-container" class="w-full max-w-4xl bg-black rounded-lg shadow-xl relative aspect-video">
+            <button id="close-video-modal" class="absolute -top-2 -right-2 text-white bg-red-600 rounded-full w-8 h-8 flex items-center justify-center z-20">&times;</button>
+            <div id="audio-visualizer" class="audio-icon-container hidden">
+                <svg class="audio-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" /></svg>
+            </div>
+            <video id="video-player" class="w-full h-full" controlslist="nodownload" onclick="togglePlayPause()"></video>
+            <!-- Botão "Próximo Episódio" -->
+            <div id="up-next-container" class="absolute bottom-20 right-4 z-10 hidden">
+                <button id="up-next-btn" class="bg-slate-900/80 hover:bg-slate-900 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center gap-2">
+                    Próximo Episódio
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                </button>
+            </div>
+            <!-- Controles Personalizados -->
+            <div class="controls-container absolute bottom-0 left-0 right-0 p-4 text-white flex flex-col gap-2">
+                <input type="range" id="progress-bar" class="w-full" value="0" step="0.1">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <button id="prev-btn" class="hidden"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg></button>
+                        <button id="play-pause-btn">
+                            <svg class="w-6 h-6" id="play-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                            <svg class="w-6 h-6 hidden" id="pause-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6" /></svg>
+                        </button>
+                        <button id="next-btn" class="hidden"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg></button>
+                        <div class="flex items-center gap-2">
+                            <button id="volume-btn">
+                                <svg class="w-6 h-6" id="volume-high-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                                <svg class="w-6 h-6 hidden" id="volume-muted-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                            </button>
+                            <input type="range" id="volume-slider" class="w-24" min="0" max="1" step="0.01" value="1">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="time-display">00:00 / 00:00</span>
+                        <button id="fullscreen-btn">
+                           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal de Detalhes para Filmes/Séries -->
+    <div id="details-modal" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-40 hidden p-4">
+        <div class="w-full max-w-4xl bg-slate-800 rounded-lg shadow-xl relative max-h-full overflow-y-auto">
+            <button id="close-details-modal" class="absolute top-3 right-3 text-white bg-red-600 rounded-full w-8 h-8 flex items-center justify-center z-20">&times;</button>
+            <div id="details-content" class="p-4 sm:p-6"></div>
+        </div>
+    </div>
+    
+    <!-- Modal para Continuar a Ver -->
+    <div id="resume-modal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden">
+        <div class="bg-slate-800 rounded-lg shadow-xl p-8 text-center">
+            <h3 class="text-xl text-white mb-4">Deseja continuar a ver?</h3>
+            <p class="text-slate-300 mb-6" id="resume-time-text"></p>
+            <div class="flex justify-center gap-4">
+                <button id="resume-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">Continuar</button>
+                <button id="restart-btn" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg">Começar do Início</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicador de Carregamento Global -->
+    <div id="loader" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+    </div>
+
+
+    <script>
+        // --- Variáveis Globais ---
+        let xtreamInfo = {};
+        let currentType = 'live';
+        let hls = new Hls();
+        let lazyImageObserver;
+        let contentCache = {
+            live: { categories: null, items: null },
+            vod: { categories: null, items: null },
+            series: { categories: null, items: null }
+        };
+        let playbackTracker;
+        let currentPlaylist = { items: [], index: -1 };
+
+        // --- Elementos do DOM ---
+        const loginScreen = document.getElementById('login-screen');
+        const appScreen = document.getElementById('app-screen');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const mainNav = document.getElementById('main-nav');
+        const categorySidebar = document.getElementById('category-sidebar');
+        const contentGrid = document.getElementById('content-grid');
+        const videoModal = document.getElementById('video-modal');
+        const videoPlayerContainer = document.getElementById('video-player-container');
+        let videoPlayer = document.getElementById('video-player');
+        const audioVisualizer = document.getElementById('audio-visualizer');
+        const closeVideoModal = document.getElementById('close-video-modal');
+        const detailsModal = document.getElementById('details-modal');
+        const detailsContent = document.getElementById('details-content');
+        const closeDetailsModal = document.getElementById('close-details-modal');
+        const logoutButton = document.getElementById('logout-button');
+        const loader = document.getElementById('loader');
+        const resumeModal = document.getElementById('resume-modal');
+        const resumeBtn = document.getElementById('resume-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const resumeTimeText = document.getElementById('resume-time-text');
+        const searchInput = document.getElementById('search-input');
+        
+        // --- Controles do Player Personalizado ---
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const progressBar = document.getElementById('progress-bar');
+        const timeDisplay = document.getElementById('time-display');
+        const volumeBtn = document.getElementById('volume-btn');
+        const volumeHighIcon = document.getElementById('volume-high-icon');
+        const volumeMutedIcon = document.getElementById('volume-muted-icon');
+        const volumeSlider = document.getElementById('volume-slider');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const upNextContainer = document.getElementById('up-next-container');
+        const upNextBtn = document.getElementById('up-next-btn');
+
+
+        // --- Funções da API e Utilitários ---
+        async function apiRequest(params) {
+            const { server, username, password } = xtreamInfo;
+            const originalUrl = new URL(`${server}/player_api.php`);
+            originalUrl.searchParams.append('username', username);
+            originalUrl.searchParams.append('password', password);
+            for (const key in params) {
+                originalUrl.searchParams.append(key, params[key]);
+            }
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(originalUrl.toString())}`;
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Erro do servidor: ${response.status}.`);
+                const responseText = await response.text();
+                try {
+                    return JSON.parse(responseText);
+                } catch (e) {
+                    console.error("Erro de Análise JSON:", responseText);
+                    throw new Error("Resposta inválida do servidor.");
+                }
+            } catch (error) {
+                console.error("Erro na requisição da API:", error);
+                let userMessage = "Não foi possível conectar ao servidor. Verifique a URL e a sua conexão.";
+                if (error.message.includes("Failed to fetch")) {
+                    userMessage = "Falha na conexão de rede. Verifique se um bloqueador de anúncios (AdBlock) está ativo.";
+                } else if (error.message.includes("inválida")) {
+                    userMessage = "O servidor não respondeu corretamente. Verifique os detalhes do servidor.";
+                }
+                showError(userMessage);
+                return null;
+            }
+        }
+
+        function toggleLoader(show) { loader.classList.toggle('hidden', !show); }
+        function showError(message) { loginError.textContent = message; loginError.classList.remove('hidden'); }
+        function formatTime(timeInSeconds) {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = Math.floor(timeInSeconds % 60);
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // --- Funções de Renderização ---
+        function setupLazyLoader() {
+            lazyImageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const lazyImage = entry.target;
+                        lazyImage.src = lazyImage.dataset.src;
+                        lazyImage.classList.remove("lazy");
+                        observer.unobserve(lazyImage);
+                    }
+                });
+            });
+        }
+
+        function renderCategories(categories) {
+            let categoryHTML = `<h2 class="text-lg font-semibold mb-4 text-white">Categorias</h2><div id="category-list" class="space-y-2">`;
+            if (categories && Array.isArray(categories) && categories.length > 0) {
+                const allCategory = { category_id: 'all', category_name: 'Todos' };
+                categories.unshift(allCategory);
+                categories.forEach((cat, index) => {
+                    const activeClass = index === 0 ? 'active' : '';
+                    categoryHTML += `<button class="w-full text-left p-2 rounded-md transition duration-200 text-slate-300 hover:bg-slate-700 category-item ${activeClass}" data-category-id="${cat.category_id}">${cat.category_name}</button>`;
+                });
+            } else {
+                categoryHTML += '<p class="text-slate-400">Nenhuma categoria encontrada.</p>';
+            }
+            categoryHTML += `</div>`;
+            categorySidebar.innerHTML = categoryHTML;
+            
+            document.querySelectorAll('.category-item').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.category-item').forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    searchInput.value = ''; // Limpa a pesquisa ao mudar de categoria
+                    fetchContent(currentType, e.currentTarget.dataset.categoryId);
+                });
+            });
+        }
+
+        function renderContent(items) {
+            contentGrid.innerHTML = '';
+            if (!items || !Array.isArray(items) || items.length === 0) {
+                contentGrid.innerHTML = '<p class="text-slate-400 col-span-full text-center mt-8">Nenhum item encontrado.</p>';
+                return;
+            }
+
+            items.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-800 rounded-lg overflow-hidden shadow-lg cursor-pointer content-card';
+                const streamId = item.stream_id || item.series_id;
+                
+                card.addEventListener('click', () => {
+                    if (currentType === 'live') {
+                        const streamUrl = `${xtreamInfo.server}/live/${xtreamInfo.username}/${xtreamInfo.password}/${streamId}.m3u8`;
+                        initiatePlayback(streamUrl, streamId);
+                    } else {
+                        showDetailsModal(streamId, currentType);
+                    }
+                });
+
+                const placeholderImg = `https://placehold.co/400x600/1e293b/ffffff?text=${encodeURIComponent(item.name || item.title)}`;
+                const icon = item.stream_icon || item.cover || placeholderImg;
+                const tinyPlaceholder = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+                card.innerHTML = `
+                    <img data-src="${icon}" src="${tinyPlaceholder}" alt="${item.name || item.title}" class="lazy w-full h-40 object-cover" onerror="this.onerror=null;this.src='${placeholderImg}';">
+                    <div class="p-3">
+                        <h3 class="font-semibold text-sm text-white truncate">${item.name || item.title}</h3>
+                    </div>
+                `;
+                contentGrid.appendChild(card);
+                lazyImageObserver.observe(card.querySelector('.lazy'));
+            });
+        }
+        
+        function renderDetails(data, type) {
+            let detailsHTML = '';
+            if (type === 'vod' && data.info) {
+                const info = data.info;
+                const movieData = data.movie_data;
+                const streamUrl = `${xtreamInfo.server}/movie/${xtreamInfo.username}/${xtreamInfo.password}/${movieData.stream_id}.${movieData.container_extension}`;
+                detailsHTML = `
+                    <div class="flex flex-col md:flex-row gap-6">
+                        <div class="md:w-1/3 flex-shrink-0"><img src="${info.movie_image}" class="rounded-lg w-full"></div>
+                        <div class="md:w-2/3 text-white">
+                            <h2 class="text-3xl font-bold mb-2">${movieData.name}</h2>
+                            <p class="text-slate-300 mb-4 h-24 overflow-y-auto">${info.plot || 'Sem sinopse disponível.'}</p>
+                            <div class="flex flex-wrap items-center gap-4 mb-4">
+                                <span class="font-semibold">${info.releasedate || ''}</span>
+                                <span class="font-semibold">${info.duration || ''}</span>
+                                <span class="bg-yellow-500 text-black font-bold px-2 py-1 rounded text-sm">IMDb: ${info.rating || 'N/A'}</span>
+                            </div>
+                            <p class="mb-2 text-sm"><strong class="text-slate-400">Gênero:</strong> ${info.genre || 'N/A'}</p>
+                            <p class="mb-4 text-sm"><strong class="text-slate-400">Elenco:</strong> ${info.cast || 'N/A'}</p>
+                            <button onclick="initiatePlayback('${streamUrl}', '${movieData.stream_id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg text-lg w-full md:w-auto">▶ Reproduzir</button>
+                        </div>
+                    </div>`;
+            } else if (type === 'series' && data.info) {
+                const info = data.info;
+                let seasonsHTML = '';
+                const episodesBySeason = Object.values(data.episodes);
+                
+                for (const season of episodesBySeason) {
+                    if(season.length === 0) continue;
+                    const seasonNum = season[0].season;
+                    seasonsHTML += `<h3 class="text-2xl font-bold text-white mt-6 mb-4">Temporada ${seasonNum}</h3><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">`;
+                    season.forEach(ep => {
+                        const streamUrl = `${xtreamInfo.server}/series/${xtreamInfo.username}/${xtreamInfo.password}/${ep.id}.${ep.container_extension}`;
+                        seasonsHTML += `
+                            <div class="bg-slate-700 p-3 rounded-lg flex items-center justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-semibold text-white text-sm">Ep ${ep.episode_num}: ${ep.title}</p>
+                                </div>
+                                <button onclick="initiatePlayback('${streamUrl}', '${ep.id}', ${seasonNum}, ${ep.episode_num})" class="flex-shrink-0 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                                </button>
+                            </div>`;
+                    });
+                    seasonsHTML += `</div>`;
+                }
+                detailsHTML = `
+                    <div class="flex flex-col md:flex-row gap-6 mb-6">
+                        <div class="md:w-1/3 flex-shrink-0"><img src="${info.cover_big}" class="rounded-lg w-full"></div>
+                        <div class="md:w-2/3 text-white">
+                            <h2 class="text-3xl font-bold mb-2">${info.name}</h2>
+                            <p class="text-slate-300 mb-4 h-24 overflow-y-auto">${info.plot || 'Sem sinopse disponível.'}</p>
+                            <div class="flex flex-wrap items-center gap-4 mb-4">
+                                <span class="font-semibold">${info.releaseDate || ''}</span>
+                                <span class="bg-yellow-500 text-black font-bold px-2 py-1 rounded text-sm">IMDb: ${info.rating || 'N/A'}</span>
+                            </div>
+                            <p class="mb-2 text-sm"><strong class="text-slate-400">Gênero:</strong> ${info.genre || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div>${seasonsHTML}</div>`;
+            }
+            detailsContent.innerHTML = detailsHTML;
+        }
+        
+        // --- Funções de Lógica e Player ---
+        async function loadAllData() {
+            toggleLoader(true);
+            const requests = [
+                apiRequest({ action: 'get_live_categories' }), apiRequest({ action: 'get_live_streams', category_id: 'all' }),
+                apiRequest({ action: 'get_vod_categories' }), apiRequest({ action: 'get_vod_streams', category_id: 'all' }),
+                apiRequest({ action: 'get_series_categories' }), apiRequest({ action: 'get_series', category_id: 'all' })
+            ];
+            try {
+                const [liveCategories, liveItems, vodCategories, vodItems, seriesCategories, seriesItems] = await Promise.all(requests);
+                contentCache.live = { categories: liveCategories, items: liveItems };
+                contentCache.vod = { categories: vodCategories, items: vodItems };
+                contentCache.series = { categories: seriesCategories, items: seriesItems };
+                displayTabContent('live');
+            } catch (error) {
+                console.error("Falha ao carregar todos os dados:", error);
+            } finally {
+                toggleLoader(false);
+            }
+        }
+        
+        function displayTabContent(type) {
+            if (contentCache[type] && contentCache[type].items) {
+                renderCategories(contentCache[type].categories);
+                renderContent(contentCache[type].items);
+            } else {
+                console.error(`Cache para o tipo '${type}' está vazio.`);
+                contentGrid.innerHTML = `<p class="text-slate-400 col-span-full text-center mt-8">Não foi possível carregar o conteúdo para esta secção.</p>`;
+                categorySidebar.innerHTML = '';
+            }
+        }
+
+        async function fetchContent(type, categoryId) {
+            if (categoryId === 'all') {
+                renderContent(contentCache[type].items);
+                return;
+            }
+            toggleLoader(true);
+            let action = '';
+            if (type === 'live') action = 'get_live_streams';
+            else if (type === 'vod') action = 'get_vod_streams';
+            else if (type === 'series') action = 'get_series';
+            const content = await apiRequest({ action, category_id: categoryId });
+            renderContent(content);
+            toggleLoader(false);
+        }
+
+        async function showDetailsModal(streamId, type) {
+            toggleLoader(true);
+            detailsContent.innerHTML = '';
+            let action = type === 'vod' ? 'get_vod_info' : 'get_series_info';
+            let idParam = type === 'vod' ? 'vod_id' : 'series_id';
+            const data = await apiRequest({ action, [idParam]: streamId });
+            toggleLoader(false);
+
+            if (data) {
+                if(type === 'series') {
+                    // Prepara a playlist para os botões de próximo/anterior
+                    const episodes = Object.values(data.episodes).flat();
+                    currentPlaylist.items = episodes.map(ep => ({
+                        id: ep.id,
+                        url: `${xtreamInfo.server}/series/${xtreamInfo.username}/${xtreamInfo.password}/${ep.id}.${ep.container_extension}`
+                    }));
+                }
+                renderDetails(data, type);
+                detailsModal.classList.remove('hidden');
+            }
+        }
+        
+        function getPlaybackTime(streamId) {
+            const times = JSON.parse(localStorage.getItem('playbackTimes') || '{}');
+            return times[streamId];
+        }
+        
+        function savePlaybackTime(streamId, time, duration) {
+            if (!streamId || !time || !duration) return;
+            const times = JSON.parse(localStorage.getItem('playbackTimes') || '{}');
+            if (time > 15 && time < duration * 0.95) {
+                times[streamId] = { time: time, duration: duration };
+            } else {
+                delete times[streamId];
+            }
+            localStorage.setItem('playbackTimes', JSON.stringify(times));
+        }
+
+        function initiatePlayback(url, streamId) {
+            if (detailsModal.classList.contains('hidden') === false) {
+                detailsModal.classList.add('hidden');
+            }
+            
+            // Encontra o índice do episódio atual na playlist da série
+            if(currentType === 'series') {
+                currentPlaylist.index = currentPlaylist.items.findIndex(item => item.id == streamId);
+            } else {
+                currentPlaylist = { items: [], index: -1 }; // Limpa para filmes e TV
+            }
+
+            const savedState = getPlaybackTime(streamId);
+            if (savedState && currentType !== 'live') {
+                resumeTimeText.textContent = `Continuar a partir de ${formatTime(savedState.time)} de ${formatTime(savedState.duration)}`;
+                resumeModal.classList.remove('hidden');
+                
+                resumeBtn.onclick = () => {
+                    resumeModal.classList.add('hidden');
+                    playVideo(url, streamId, savedState.time);
+                };
+                restartBtn.onclick = () => {
+                    resumeModal.classList.add('hidden');
+                    playVideo(url, streamId, 0);
+                };
+            } else {
+                playVideo(url, streamId, 0);
+            }
+        }
+        
+        function showVideoError(message) {
+            document.getElementById('video-loader')?.remove();
+            document.getElementById('video-error-overlay')?.remove();
+            const errorOverlay = document.createElement('div');
+            errorOverlay.id = 'video-error-overlay';
+            errorOverlay.className = 'absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 p-4 z-20';
+            errorOverlay.innerHTML = `<p class="text-white text-center">${message}</p>`;
+            videoPlayerContainer.appendChild(errorOverlay);
+        }
+
+        function playVideo(url, streamId, startTime = 0) {
+            videoModal.classList.remove('hidden');
+            videoPlayer.classList.remove('hidden');
+            audioVisualizer.classList.add('hidden');
+            document.getElementById('video-error-overlay')?.remove();
+            
+            // Mostra/esconde botões de próximo/anterior
+            prevBtn.classList.toggle('hidden', currentPlaylist.index <= 0);
+            nextBtn.classList.toggle('hidden', currentPlaylist.index >= currentPlaylist.items.length - 1);
+            upNextContainer.classList.add('hidden');
+
+            const spinner = document.createElement('div');
+            spinner.id = 'video-loader';
+            spinner.className = 'absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-10';
+            spinner.innerHTML = '<div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500"></div>';
+            videoPlayerContainer.appendChild(spinner);
+            
+            const removeSpinner = () => document.getElementById('video-loader')?.remove();
+
+            hls.destroy();
+            
+            const hlsConfig = { maxBufferLength: 60, maxMaxBufferLength: 120 };
+            
+            if (Hls.isSupported() && url.includes('.m3u8')) {
+                hls = new Hls(hlsConfig);
+                hls.loadSource(url);
+                hls.attachMedia(videoPlayer);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e => console.error("Autoplay foi bloqueado:", e)));
+                hls.on(Hls.Events.ERROR, (event, data) => { 
+                    console.error('HLS Error:', data);
+                    if(data.fatal) {
+                        showVideoError(`Erro de Rede: Não foi possível carregar o stream. (código: ${data.details})`);
+                        hls.destroy();
+                    }
+                });
+            } else {
+                videoPlayer.src = url;
+            }
+            
+            videoPlayer.oncanplay = () => {
+                removeSpinner();
+                if (startTime > 0) {
+                    const doSeek = () => {
+                        videoPlayer.currentTime = startTime;
+                        videoPlayer.removeEventListener('loadedmetadata', doSeek);
+                        videoPlayer.play().catch(e => console.error("Autoplay após seek foi bloqueado:", e));
+                    };
+                    videoPlayer.addEventListener('loadedmetadata', doSeek);
+                } else {
+                    videoPlayer.play().catch(e => console.error("Autoplay foi bloqueado:", e));
+                }
+            };
+            videoPlayer.onerror = (e) => {
+                removeSpinner();
+                console.error('Native Video Player Error:', e);
+                showVideoError('Erro: O formato deste vídeo não é suportado pelo seu navegador.');
+            };
+            
+            clearInterval(playbackTracker);
+            if (currentType !== 'live') {
+                playbackTracker = setInterval(() => {
+                    savePlaybackTime(streamId, videoPlayer.currentTime, videoPlayer.duration);
+                }, 5000);
+            }
+        }
+        
+        function playNextEpisode() {
+            if (currentPlaylist.index < currentPlaylist.items.length - 1) {
+                const nextIndex = currentPlaylist.index + 1;
+                const nextEpisode = currentPlaylist.items[nextIndex];
+                initiatePlayback(nextEpisode.url, nextEpisode.id);
+            }
+        }
+
+        function stopVideo() {
+            hls.destroy();
+            clearInterval(playbackTracker);
+            videoPlayer.pause();
+            videoPlayer.removeAttribute('src');
+            videoPlayer.load();
+            videoModal.classList.add('hidden');
+            document.getElementById('video-loader')?.remove();
+            document.getElementById('video-error-overlay')?.remove();
+        }
+
+        function togglePlayPause() {
+            if (videoPlayer.paused) {
+                videoPlayer.play().catch(e => console.error("Play foi bloqueado:", e));
+            } else {
+                videoPlayer.pause();
+            }
+        }
+        
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                toggleLoader(true);
+                loginError.classList.add('hidden');
+                const server = document.getElementById('server-url').value.trim();
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                if (!server || !username || !password) {
+                    showError("Por favor, preencha todos os campos.");
+                    toggleLoader(false);
+                    return;
+                }
+                xtreamInfo = { server, username, password };
+                const authTest = await apiRequest({}); 
+                if (authTest && authTest.user_info && authTest.user_info.auth === 1) {
+                    localStorage.setItem('xtreamInfo', JSON.stringify(xtreamInfo));
+                    loginScreen.classList.add('hidden');
+                    appScreen.classList.remove('hidden');
+                    loadAllData();
+                } else {
+                     toggleLoader(false);
+                }
+            });
+            
+            mainNav.addEventListener('click', (e) => {
+                if (e.target.classList.contains('nav-button')) {
+                    const type = e.target.dataset.type;
+                    if (type === currentType) return;
+                    currentType = type;
+                    searchInput.value = '';
+                    document.querySelectorAll('.nav-button').forEach(btn => {
+                        btn.classList.remove('bg-blue-600', 'text-white');
+                        btn.classList.add('bg-slate-700', 'hover:bg-slate-600', 'text-slate-300');
+                    });
+                    e.target.classList.add('bg-blue-600', 'text-white');
+                    e.target.classList.remove('bg-slate-700', 'hover:bg-slate-600', 'text-slate-300');
+                    displayTabContent(type);
+                }
+            });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                const activeCategory = document.querySelector('.category-item.active')?.dataset.categoryId || 'all';
+                
+                let sourceItems = [];
+                if (activeCategory === 'all') {
+                    sourceItems = contentCache[currentType].items;
+                } else {
+                    sourceItems = contentCache[currentType].items.filter(item => item.category_id == activeCategory);
+                }
+
+                if (!query) {
+                    renderContent(sourceItems);
+                    return;
+                }
+
+                const filteredItems = sourceItems.filter(item => 
+                    (item.name || item.title).toLowerCase().includes(query)
+                );
+                renderContent(filteredItems);
+            });
+
+            closeVideoModal.addEventListener('click', stopVideo);
+            closeDetailsModal.addEventListener('click', () => detailsModal.classList.add('hidden'));
+            logoutButton.addEventListener('click', () => {
+                xtreamInfo = {};
+                contentCache = { live: {}, vod: {}, series: {} };
+                localStorage.clear();
+                appScreen.classList.add('hidden');
+                loginScreen.classList.remove('hidden');
+                stopVideo();
+            });
+            
+            videoPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
+            videoPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); });
+            videoPlayer.addEventListener('timeupdate', () => {
+                progressBar.value = (videoPlayer.currentTime / videoPlayer.duration) * 100 || 0;
+                timeDisplay.textContent = `${formatTime(videoPlayer.currentTime)} / ${formatTime(videoPlayer.duration || 0)}`;
+                // Lógica para "Próximo Episódio"
+                if(currentPlaylist.index !== -1 && videoPlayer.duration > 0 && (videoPlayer.duration - videoPlayer.currentTime) <= 30) {
+                    upNextContainer.classList.remove('hidden');
+                } else {
+                    upNextContainer.classList.add('hidden');
+                }
+            });
+            videoPlayer.addEventListener('ended', () => {
+                playNextEpisode();
+            });
+            progressBar.addEventListener('input', () => { videoPlayer.currentTime = (progressBar.value / 100) * videoPlayer.duration; });
+            playPauseBtn.addEventListener('click', togglePlayPause);
+            volumeSlider.addEventListener('input', (e) => { videoPlayer.volume = e.target.value; videoPlayer.muted = e.target.value == 0; });
+            volumeBtn.addEventListener('click', () => { videoPlayer.muted = !videoPlayer.muted; });
+            videoPlayer.addEventListener('volumechange', () => {
+                volumeSlider.value = videoPlayer.muted ? 0 : videoPlayer.volume;
+                volumeHighIcon.classList.toggle('hidden', videoPlayer.muted);
+                volumeMutedIcon.classList.toggle('hidden', !videoPlayer.muted);
+            });
+            fullscreenBtn.addEventListener('click', () => {
+                try {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        videoPlayerContainer.requestFullscreen();
+                    }
+                } catch (error) {
+                    console.error("Fullscreen não é permitido neste ambiente.", error);
+                }
+            });
+            nextBtn.addEventListener('click', playNextEpisode);
+            prevBtn.addEventListener('click', () => {
+                if (currentPlaylist.index > 0) {
+                    const prevIndex = currentPlaylist.index - 1;
+                    const prevEpisode = currentPlaylist.items[prevIndex];
+                    initiatePlayback(prevEpisode.url, prevEpisode.id);
+                }
+            });
+            upNextBtn.addEventListener('click', playNextEpisode);
+        }
+        
+        // --- Inicialização ---
+        function initializeApp() {
+            setupLazyLoader();
+            setupEventListeners();
+            const savedInfo = localStorage.getItem('xtreamInfo');
+            if (savedInfo) {
+                xtreamInfo = JSON.parse(savedInfo);
+                loginScreen.classList.add('hidden');
+                appScreen.classList.remove('hidden');
+                loadAllData();
+            }
+        }
+        
+        initializeApp();
+    </script>
+</body>
+</html>
